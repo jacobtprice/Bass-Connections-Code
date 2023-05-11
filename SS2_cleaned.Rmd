@@ -1,0 +1,285 @@
+---
+title: "SS2_code_cleaned"
+author: "Jacob Price"
+date: "2023-03-26"
+knit: (function(inputFile, encoding) {
+      out_dir <- "output_knitted-files";
+      rmarkdown::render(inputFile,
+                        encoding=encoding,
+                        output_dir=file.path(dirname(inputFile), out_dir))})
+output:
+  html_document: 
+    theme: cosmo
+---
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(purrr)
+library(patchwork)
+```
+
+```{r}
+setwd("..")
+
+data <- read.table("Ellerbe-Creek-Bass-2022-23-main/Synoptic_Surveys/data_processed/ND-as-half-detection/SS1-SS2-SS3-SS4_MERGED_DATA_0.5ND_REC.csv", header = TRUE, sep = ",") %>% 
+  rename("Site.Num" = "SITE")
+
+geo_data <- read.table("Ellerbe-Creek-Bass-2022-23-main/geographic_data.csv", header = TRUE, sep = ",")%>% 
+  rename("Site.Num" = "SITE") %>% 
+  select(Site.Num, elevation, canopy, slope2, sand, organic_matter) 
+
+landcover_data <- read.table("my.code/Landcover_Change_raw.csv", header = TRUE, sep = ",") %>%
+  select(Site.Num, LC11IMP, LC11DEV, LC11FOREST, LC11WETLND)
+
+dist_data <- read.table("my.code/new_main.csv", header = TRUE, sep = ",") %>%
+  select(SS2, main.branch.distance) %>%
+  rename("Site.Num" = "SS2")
+```
+
+```{r}
+SS1data <- filter(data, DATE == "9/25/2021")
+SS2data <- filter(data, DATE == "2/26/2022")
+SS3data <- filter(data, DATE == "6/16/2022")
+SS4data <- filter(data, DATE == "11/5/2022")
+
+SS2filtered <- SS2data %>%
+  select(-E.Coli.CFU.per.100mL, -pH.mV, -gs_area, -per_gs, -Type, -main.branch.distance, -Branch.Distance_OR_Trib.Name, -Glyphosate, -roadLength_km, -pipeLength_km)
+
+SS2data_joined <- left_join(SS2filtered, geo_data, by = "Site.Num") 
+SS2data_joined <- left_join(SS2data_joined, landcover_data, by = "Site.Num") %>% 
+  na.omit(SS2data_joined)
+
+SS2data_dist <- left_join(SS2filtered, dist_data, by = "Site.Num") %>%
+  na.omit(SS2data_dist)
+```
+
+```{r}
+SS2_sand <- SS2data_joined %>%
+  select(-Site.Num, -DATE, -DO.perc, -Latitude_streamstat, -Longitude_streamstat, -MedianHHIn, -Low_20thPHHIn, -roadDensity_kmkm2, - pipeDensity_kmkm2, -perMinority, -elevation, -canopy, -slope2, -organic_matter, -LC11IMP, -LC11DEV, -LC11FOREST, -LC11WETLND) %>%
+  pivot_longer(!sand, names_to = "type", values_to = "value") %>%
+  group_by(type) %>%
+  mutate(r_squared = summary(lm(value ~ sand))$r.squared)
+
+ggplot(SS2_sand, aes(x = sand, y = value)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~type, scales = "free_y", labeller = label_parsed) +
+  labs(x = "Sand Content (%)") +
+  geom_text(aes(label = paste0("R^2 = ", round(r_squared, 2))), 
+            x = Inf, y = -Inf, hjust = 1, vjust = 0, size = 4)
+
+```
+
+```{r}
+SS2_ele <- SS2data_joined %>%
+  select(-Site.Num, -DATE, -DO.perc, -Latitude_streamstat, -Longitude_streamstat, -MedianHHIn, -Low_20thPHHIn, -roadDensity_kmkm2, - pipeDensity_kmkm2, -perMinority, -sand, -canopy, -slope2, -organic_matter, -LC11IMP, -LC11DEV, -LC11FOREST, -LC11WETLND) %>%
+  pivot_longer(!elevation, names_to = "type", values_to = "value") %>%
+  group_by(type) %>%
+  mutate(r_squared = summary(lm(value ~ elevation))$r.squared)
+
+ggplot(SS2_ele, aes(x = elevation, y = value)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~type, scales = "free_y", labeller = label_parsed) +
+  labs(x = "Elevation (m)") +
+  geom_text(aes(label = paste0("R^2 = ", round(r_squared, 2))), 
+            x = Inf, y = -Inf, hjust = 1, vjust = 0, size = 4)
+
+```
+
+```{r}
+SS2_canopy <- SS2data_joined %>%
+  select(-Site.Num, -DATE, -DO.perc, -Latitude_streamstat, -Longitude_streamstat, -MedianHHIn, -Low_20thPHHIn, -roadDensity_kmkm2, - pipeDensity_kmkm2, -perMinority, -sand, -elevation, -slope2, -organic_matter, -LC11IMP, -LC11DEV, -LC11FOREST, -LC11WETLND) %>%
+  pivot_longer(!canopy, names_to = "type", values_to = "value") %>%
+  group_by(type) %>%
+  mutate(r_squared = summary(lm(value ~ canopy))$r.squared)
+
+ggplot(SS2_canopy, aes(x = canopy, y = value)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~type, scales = "free_y", labeller = label_parsed) +
+  labs(x = "Canopy Cover (%)") +
+  geom_text(aes(label = paste0("R^2 = ", round(r_squared, 2))), 
+            x = Inf, y = -Inf, hjust = 1, vjust = 0, size = 4)
+
+```
+
+
+```{r}
+SS2_slope <- SS2data_joined %>%
+  select(-Site.Num, -DATE, -DO.perc, -Latitude_streamstat, -Longitude_streamstat, -MedianHHIn, -Low_20thPHHIn, -roadDensity_kmkm2, - pipeDensity_kmkm2, -perMinority, -sand, -elevation, -canopy, -organic_matter, -LC11IMP, -LC11DEV, -LC11FOREST, -LC11WETLND) %>%
+  pivot_longer(!slope2, names_to = "type", values_to = "value") %>%
+  group_by(type) %>%
+  mutate(r_squared = summary(lm(value ~ slope2))$r.squared)
+
+ggplot(SS2_slope, aes(x = slope2, y = value)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~type, scales = "free_y", labeller = label_parsed) +
+  labs(x = "Slope (%)") +
+  geom_text(aes(label = paste0("R^2 = ", round(r_squared, 2))), 
+            x = Inf, y = -Inf, hjust = 1, vjust = 0, size = 4)
+
+```
+
+
+```{r}
+SS2_organic <- SS2data_joined %>%
+  select(-Site.Num, -DATE, -DO.perc, -Latitude_streamstat, -Longitude_streamstat, -MedianHHIn, -Low_20thPHHIn, -roadDensity_kmkm2, - pipeDensity_kmkm2, -perMinority, -sand, -elevation, -canopy, -slope2, -LC11IMP, -LC11DEV, -LC11FOREST, -LC11WETLND) %>%
+  pivot_longer(!organic_matter, names_to = "type", values_to = "value") %>%
+  group_by(type) %>%
+  mutate(r_squared = summary(lm(value ~ organic_matter))$r.squared)
+
+ggplot(SS2_organic, aes(x = organic_matter, y = value)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~type, scales = "free_y", labeller = label_parsed) +
+  labs(x = "Organic Matter (%)") +
+  geom_text(aes(label = paste0("R^2 = ", round(r_squared, 2))), 
+            x = Inf, y = -Inf, hjust = 1, vjust = 0, size = 4)
+
+```
+
+Plotting impervious land vs contaminants
+
+```{r}
+SS2_IMP <- SS2data_joined %>%
+  select(-Site.Num, -DATE, -DO.perc, -Latitude_streamstat, -Longitude_streamstat, -MedianHHIn, -Low_20thPHHIn, -roadDensity_kmkm2, - pipeDensity_kmkm2, -perMinority, -sand, -elevation, -canopy, -slope2, -organic_matter, -LC11DEV, -LC11FOREST, -LC11WETLND) %>%
+  pivot_longer(!LC11IMP, names_to = "type", values_to = "value") %>%
+  group_by(type) %>%
+  mutate(r_squared = summary(lm(value ~ LC11IMP))$r.squared)
+
+ggplot(SS2_IMP, aes(x = LC11IMP, y = value)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~type, scales = "free_y", labeller = label_parsed) +
+  labs(x = "Impervious Land (%)") +
+  geom_text(aes(label = paste0("R^2 = ", round(r_squared, 2))), 
+            x = Inf, y = -Inf, hjust = 1, vjust = 0, size = 4)
+
+```
+
+Plotting developed land vs contaminants
+
+```{r}
+SS2_DEV <- SS2data_joined %>%
+  select(-Site.Num, -DATE, -DO.perc, -Latitude_streamstat, -Longitude_streamstat, -MedianHHIn, -Low_20thPHHIn, -roadDensity_kmkm2, - pipeDensity_kmkm2, -perMinority, -sand, -elevation, -canopy, -slope2, -organic_matter, -LC11IMP, -LC11FOREST, -LC11WETLND) %>%
+  pivot_longer(!LC11DEV, names_to = "type", values_to = "value") %>%
+  group_by(type) %>%
+  mutate(r_squared = summary(lm(value ~ LC11DEV))$r.squared)
+
+ggplot(SS2_DEV, aes(x = LC11DEV, y = value)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~type, scales = "free_y", labeller = label_parsed) +
+  labs(x = "Developed Land (%)") +
+  geom_text(aes(label = paste0("R^2 = ", round(r_squared, 2))), 
+            x = Inf, y = -Inf, hjust = 1, vjust = 0, size = 4)
+
+```
+
+Plotting forested land percentage vs contaminants
+
+```{r}
+SS2_FOREST <- SS2data_joined %>%
+  select(-Site.Num, -DATE, -DO.perc, -Latitude_streamstat, -Longitude_streamstat, -MedianHHIn, -Low_20thPHHIn, -roadDensity_kmkm2, - pipeDensity_kmkm2, -perMinority, -sand, -elevation, -canopy, -slope2, -organic_matter, -LC11IMP, -LC11DEV, -LC11WETLND) %>%
+  pivot_longer(!LC11FOREST, names_to = "type", values_to = "value") %>%
+  group_by(type) %>%
+  mutate(r_squared = summary(lm(value ~ LC11FOREST))$r.squared)
+
+ggplot(SS2_FOREST, aes(x = LC11FOREST, y = value)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~type, scales = "free_y", labeller = label_parsed) +
+  labs(x = "FOREST Land (%)") +
+  geom_text(aes(label = paste0("R^2 = ", round(r_squared, 2))), 
+            x = Inf, y = -Inf, hjust = 1, vjust = 0, size = 4)
+
+```
+
+Plotting wetland percentage v contaminants
+
+```{r}
+SS2_WETLND <- SS2data_joined %>%
+  select(-Site.Num, -DATE, -DO.perc, -Latitude_streamstat, -Longitude_streamstat, -MedianHHIn, -Low_20thPHHIn, -roadDensity_kmkm2, - pipeDensity_kmkm2, -perMinority, -sand, -elevation, -canopy, -slope2, -organic_matter, -LC11IMP, -LC11DEV, -LC11FOREST) %>%
+  pivot_longer(!LC11WETLND, names_to = "type", values_to = "value") %>%
+  group_by(type) %>%
+  mutate(r_squared = summary(lm(value ~ LC11WETLND))$r.squared)
+
+ggplot(SS2_WETLND, aes(x = LC11WETLND, y = value)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~type, scales = "free_y", labeller = label_parsed) +
+  labs(x = "Wetland Land (%)") +
+  geom_text(aes(label = paste0("R^2 = ", round(r_squared, 2))), 
+            x = Inf, y = -Inf, hjust = 1, vjust = 0, size = 4)
+```
+
+Plotting elevation v contaminants
+
+```{r}
+SS2_ROAD <- SS2data_joined %>%
+  select(-Site.Num, -DATE, -DO.perc, -Latitude_streamstat, -Longitude_streamstat, -MedianHHIn, -Low_20thPHHIn, -LC11WETLND, - pipeDensity_kmkm2, -perMinority, -sand, -elevation, -canopy, -slope2, -organic_matter, -LC11IMP, -LC11DEV, -LC11FOREST) %>%
+  pivot_longer(!roadDensity_kmkm2, names_to = "type", values_to = "value") %>%
+  group_by(type) %>%
+  mutate(r_squared = summary(lm(value ~ roadDensity_kmkm2))$r.squared)
+
+ggplot(SS2_ROAD, aes(x = roadDensity_kmkm2, y = value)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~type, scales = "free_y", labeller = label_parsed) +
+  labs(x = "Road Density (km/km^2)") +
+  geom_text(aes(label = paste0("R^2 = ", round(r_squared, 2))), 
+            x = Inf, y = -Inf, hjust = 1, vjust = 0, size = 4)
+```
+
+Plotting slope vs contaminants
+
+```{r}
+SS2_PIPE <- SS2data_joined %>%
+  select(-Site.Num, -DATE, -DO.perc, -Latitude_streamstat, -Longitude_streamstat, -MedianHHIn, -Low_20thPHHIn, -LC11WETLND, - roadDensity_kmkm2, -perMinority, -sand, -elevation, -canopy, -slope2, -organic_matter, -LC11IMP, -LC11DEV, -LC11FOREST) %>%
+  pivot_longer(!pipeDensity_kmkm2, names_to = "type", values_to = "value") %>%
+  group_by(type) %>%
+  mutate(r_squared = summary(lm(value ~ pipeDensity_kmkm2))$r.squared)
+
+ggplot(SS2_PIPE, aes(x = pipeDensity_kmkm2, y = value)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~type, scales = "free_y", labeller = label_parsed) +
+  labs(x = "Pipe Density (km/km^2)") +
+  geom_text(aes(label = paste0("R^2 = ", round(r_squared, 2))), 
+            x = Inf, y = -Inf, hjust = 1, vjust = 0, size = 4)
+```
+
+```{r}
+SS2_DIST <- SS2data_dist %>%
+  select(-Site.Num, -DATE, -DO.perc, -Latitude_streamstat, -Longitude_streamstat, -MedianHHIn, -Low_20thPHHIn, - pipeDensity_kmkm2, -perMinority) %>%
+  pivot_longer(!main.branch.distance, names_to = "type", values_to = "value") %>%
+  group_by(type) %>%
+  mutate(r_squared = summary(lm(value ~ main.branch.distance))$r.squared)
+
+ggplot(SS2_DIST, aes(x = main.branch.distance, y = value)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~type, scales = "free_y", labeller = label_parsed) +
+  labs(x = "Main Branch Distance (mi)") +
+  geom_text(aes(label = paste0("R^2 = ", round(r_squared, 2))), 
+            x = Inf, y = -Inf, hjust = 1, vjust = 0, size = 4)
+```
+```{r}
+# Create empty data frame to store first rows
+first_rows <- data.frame()
+
+# List of data frames
+data_frames <- list(SS2_canopy, SS2_DEV, SS2_DIST, SS2_ele, SS2_FOREST, SS2_IMP, SS2_organic, SS2_PIPE, SS2_ROAD, SS2_sand, SS2_slope, SS2_WETLND)
+
+# Loop through each data frame
+for (i in 1:length(data_frames)) {
+  # Extract first row
+  first_row <- data_frames[[i]][22, ]
+  # Append to the first_rows data frame
+  first_rows <- rbind(first_rows, first_row)
+}
+
+```
